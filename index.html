@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>ROI 繪製工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>ROI 繪製工具</h1>
+    <div>
+        <label for="cameraCount">輸入鏡頭數量（2-9）：</label>
+        <input type="number" id="cameraCount" min="2" max="9" value="2">
+        <button id="splitScreenBtn">分割畫面</button>
+    </div>
+    <div>
+        <button id="loadVideoBtn">導入影片</button>
+        <button id="playPauseBtn">播放/暫停</button>
+        <button id="importImagesBtn">導入原始鏡頭片</button>
+        <button id="exportROIBtn">導出 ROI</button>
+        <input type="file" id="imageFiles" accept="image/*" multiple style="display: none;">
+    </div>
+    <div id="videoContainer">
+        <video id="video"></video>
+        <canvas id="canvas"></canvas>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+#videoContainer {
+    position: relative;
+    display: inline-block;
+}
+
+#video {
+    width: 100%;
+    height: auto;
+}
+
+#canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: auto; /* 確保影片按鈕可點擊 */
+}
+
+canvas {
+    border: 1px solid #000;
+}
