@@ -3,6 +3,9 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const cameraCountInput = document.getElementById('cameraCount');
+const lineToolBtn = document.getElementById('lineToolBtn');
+const polygonToolBtn = document.getElementById('polygonToolBtn');
+const colorPicker = document.getElementById('colorPicker');
 cameraCountInput.value = 6;
 const imageFilesInput = document.getElementById('imageFiles');
 
@@ -10,22 +13,22 @@ let cameraRegions = [];
 let roiAreas = [];
 let points = [];
 let importedImages = [];
-let cameraImageMapping = []; // 用於記錄每個原始鏡頭圖片應放置的分割鏡頭
+let cameraImageMapping = [];
+let canceledROIs = [];
+let currentTool = 'line'; // 預設工具為線條
+let polygonPoints = [];
+let selectedColor = colorPicker.value;
 
 // 加載影片
-function loadVideo() {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'video/*';
-    fileInput.onchange = e => {
-        const file = e.target.files[0];
-        if (file) {
-            const url = URL.createObjectURL(file);
-            video.src = url;
-            video.load();
-        }
-    };
-    fileInput.click();
+function loadVideo(file) {
+    if (file) {
+        const url = URL.createObjectURL(file);
+        video.src = url;
+        video.load();
+        video.onloadeddata = () => {
+            video.play(); // 自動播放影片
+        };
+    }
 }
 
 // 播放/暫停影片
@@ -36,6 +39,28 @@ function togglePlayPause() {
         video.pause();
     }
 }
+
+// 設置拖放區域，允許將影片檔拖入來載入
+const videoContainer = document.getElementById('videoContainer');
+videoContainer.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    videoContainer.classList.add('drag-over'); // 添加樣式以提示使用者可以拖放
+});
+
+videoContainer.addEventListener('dragleave', () => {
+    videoContainer.classList.remove('drag-over');
+});
+
+videoContainer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    videoContainer.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('video/')) {
+        loadVideo(file); // 載入拖曳的影片
+    } else {
+        alert('請拖入有效的影片文件');
+    }
+});
 
 // 同步 canvas 大小與影片大小
 video.onloadedmetadata = () => {
@@ -71,14 +96,50 @@ function splitScreen(count) {
     setupCameraImageMapping();
 }
 
-// 設置每個原始鏡頭圖片應放置的分割鏡頭
-function setupCameraImageMapping() {
-    cameraImageMapping = Array(cameraRegions.length).fill(null);
-    importedImages.forEach((image, i) => {
-        const imageName = imageFilesInput.files[i].name; // 取得每張圖片的名稱
-        const regionIndex = prompt(`請選擇圖片 ${imageName} 應放置的分割鏡頭（1-${cameraRegions.length}）：`);
-        cameraImageMapping[i] = parseInt(regionIndex) - 1;
-    });
+// 監聽工具按鈕點擊事件，切換工具和按鈕顯示
+lineToolBtn.onclick = () => selectTool('line');
+polygonToolBtn.onclick = () => selectTool('polygon');
+colorPicker.oninput = (e) => selectedColor = e.target.value;
+
+function selectTool(tool) {
+    currentTool = tool;
+    lineToolBtn.classList.toggle('selected', tool === 'line');
+    polygonToolBtn.classList.toggle('selected', tool === 'polygon');
+}
+
+// 在 canvas 上點擊以記錄座標並繪製ROI
+canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (currentTool === 'line') {
+        handleLineTool(x, y);
+    } else if (currentTool === 'polygon') {
+        handlePolygonTool(x, y);
+    }
+    drawROI();
+};
+
+function handleLineTool(x, y) {
+    points.push({ x, y });
+    if (points.length === 2) {
+        roiAreas.push({ type: 'line', points: [...points], color: selectedColor });
+        points = [];
+    }
+}
+
+function handlePolygonTool(x, y) {
+    polygonPoints.push({ x, y });
+    if (polygonPoints.length > 2 && isCloseToFirstPoint(x, y)) {
+        roiAreas.push({ type: 'polygon', points: [...polygonPoints], color: selectedColor });
+        polygonPoints = [];
+    }
+}
+
+function isCloseToFirstPoint(x, y) {
+    const firstPoint = polygonPoints[0];
+    return Math.hypot(firstPoint.x - x, firstPoint.y - y) < 10; // 判斷是否接近首點
 }
 
 // 繪製鏡頭分割區域
@@ -93,134 +154,34 @@ function drawRegions() {
     });
 }
 
-// 在 canvas 上點擊以記錄座標並繪製ROI
-canvas.onclick = (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    points.push({ x, y });
-
-    if (points.length === 2) {
-        roiAreas.push({ type: 'line', points: [...points] });
-        points = [];
-    } else if (points.length === 4) {
-        roiAreas.push({ type: 'rect', points: [...points] });
-        points = [];
-    }
-    drawROI();
-};
-
-// 繪製 ROI
+// 繪製ROI
 function drawROI() {
-    drawRegions();
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 4;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    roiAreas.forEach(area => {
+        ctx.beginPath();
+        ctx.strokeStyle = area.color || 'red';
+        ctx.fillStyle = area.color || 'red';
+        ctx.lineWidth = 2;
 
-    roiAreas.forEach(roi => {
-        if (roi.type === 'line') {
-            const [p1, p2] = roi.points;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
+        if (area.type === 'line') {
+            ctx.moveTo(area.points[0].x, area.points[0].y);
+            ctx.lineTo(area.points[1].x, area.points[1].y);
             ctx.stroke();
-        } else if (roi.type === 'rect') {
-            const [p1, p2, p3, p4] = roi.points;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.lineTo(p3.x, p3.y);
-            ctx.lineTo(p4.x, p4.y);
+        } else if (area.type === 'polygon') {
+            area.points.forEach((point, index) => {
+                if (index === 0) {
+                    ctx.moveTo(point.x, point.y);
+                } else {
+                    ctx.lineTo(point.x, point.y);
+                }
+            });
             ctx.closePath();
+            ctx.globalAlpha = 0.3;
+            ctx.fill(); // 30%透明度填充
+            ctx.globalAlpha = 1.0;
             ctx.stroke();
         }
     });
-}
-
-// 導出 ROI
-function exportROI() {
-    if (importedImages.length === 0) {
-        alert('請先導入原始鏡頭圖片');
-        return;
-    }
-    const roiTextData = [];
-    importedImages.forEach((image, imageIndex) => {
-        const regionIndex = cameraImageMapping[imageIndex];
-        const imageName = imageFilesInput.files[imageIndex].name; // 獲取原始鏡頭檔名
-
-        const offCanvas = document.createElement('canvas');
-        offCanvas.width = image.width;
-        offCanvas.height = image.height;
-        const offCtx = offCanvas.getContext('2d');
-        offCtx.drawImage(image, 0, 0);
-        offCtx.strokeStyle = 'red';
-        offCtx.lineWidth = 4;
-
-        const roiData = [];
-        roiAreas.forEach((roi) => {
-            if (roi.points.some(p => isPointInRegion(p, cameraRegions[regionIndex]))) {
-                const scaledPoints = roi.points.map(p => ({
-    x: parseFloat((((p.x - cameraRegions[regionIndex].x) / cameraRegions[regionIndex].width) * image.width).toFixed(2)),
-    y: parseFloat((((p.y - cameraRegions[regionIndex].y) / cameraRegions[regionIndex].height) * image.height).toFixed(2))
-}));
-                offCtx.beginPath();
-                offCtx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
-                scaledPoints.forEach(p => offCtx.lineTo(p.x, p.y));
-                offCtx.stroke();
-                roiData.push(`ROI: ${JSON.stringify(scaledPoints)}`);
-            }
-        });
-
-        offCanvas.toBlob(blob => {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${imageName}_roi.png`; // 使用原始鏡頭的檔名
-            link.click();
-        });
-        roiTextData.push(`${imageName}
-${roiData.join('\n')}`);
-    });
-
-    // 匯出 ROI 座標記錄 txt 檔
-    const blob = new Blob([roiTextData.join('\n\n')], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'roi_coordinates.txt';
-    link.click();
-    alert('ROI 導出完成');
-}
-
-// 導入原始鏡頭圖片
-function importImages() {
-    imageFilesInput.click();
-}
-
-imageFilesInput.onchange = (e) => {
-    const files = e.target.files;
-    if (files.length !== cameraRegions.length) {
-        alert('導入的圖片數量與鏡頭數量不符');
-        return;
-    }
-    importedImages = [];
-    let loadedCount = 0;
-    for (let i = 0; i < files.length; i++) {
-        const img = new Image();
-        img.onload = () => {
-            loadedCount++;
-            if (loadedCount === files.length) {
-                alert('原始鏡頭圖片導入完成');
-            }
-        };
-        img.src = URL.createObjectURL(files[i]);
-        importedImages.push(img);
-    }
-};
-// 播放/暫停影片
-function togglePlayPause() {
-    if (video.paused) {
-        video.play();
-    } else {
-        video.pause();
-    }
 }
 
 // 快轉或倒退影片
@@ -251,15 +212,20 @@ document.addEventListener('keydown', (e) => {
 });
 
 
-// 檢查點是否在指定的區域內
-function isPointInRegion(point, region) {
-    return point.x >= region.x && point.x <= region.x + region.width &&
-           point.y >= region.y && point.y <= region.y + region.height;
-}
-
-// 將函數直接綁定至按鈕的 onclick
-document.getElementById('loadVideoBtn').onclick = loadVideo;
+// 綁定按鈕的 onclick
+document.getElementById('loadVideoBtn').onclick = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'video/*';
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        loadVideo(file);
+    };
+    fileInput.click();
+};
 document.getElementById('playPauseBtn').onclick = togglePlayPause;
 document.getElementById('splitScreenBtn').onclick = () => splitScreen(parseInt(cameraCountInput.value));
 document.getElementById('importImagesBtn').onclick = importImages;
 document.getElementById('exportROIBtn').onclick = exportROI;
+document.getElementById('undoROIBtn').onclick = undoLastROI;
+document.getElementById('redoROIBtn').onclick = redoLastROI;
