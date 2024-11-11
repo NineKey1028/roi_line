@@ -5,6 +5,7 @@ const ctx = canvas.getContext('2d');
 const cameraCountInput = document.getElementById('cameraCount');
 const lineToolBtn = document.getElementById('lineToolBtn');
 const polygonToolBtn = document.getElementById('polygonToolBtn');
+const nextROIBtn = document.getElementById('nextROIBtn'); // 新增按鈕元素
 const colorPicker = document.getElementById('colorPicker');
 cameraCountInput.value = 6;
 const imageFilesInput = document.getElementById('imageFiles');
@@ -96,9 +97,120 @@ function splitScreen(count) {
     setupCameraImageMapping();
 }
 
+// 導入原始鏡頭圖片
+function importImages() {
+    imageFilesInput.click();
+}
+imageFilesInput.onchange = (e) => {
+    const files = e.target.files;
+    if (files.length !== cameraRegions.length) {
+        alert('導入的圖片數量與鏡頭數量不符');
+        return;
+    }
+    importedImages = [];
+    let loadedCount = 0;
+    for (let i = 0; i < files.length; i++) {
+        const img = new Image();
+        img.onload = () => {
+            loadedCount++;
+            if (loadedCount === files.length) {
+                alert('原始鏡頭圖片導入完成');
+            }
+        };
+        img.src = URL.createObjectURL(files[i]);
+        importedImages.push(img);
+    }
+};
+
+// 設置每個原始鏡頭圖片應放置的分割鏡頭
+function setupCameraImageMapping() {
+    cameraImageMapping = Array(cameraRegions.length).fill(null);
+    importedImages.forEach((image, i) => {
+        const imageName = imageFilesInput.files[i].name; // 取得每張圖片的名稱
+        const regionIndex = prompt(`請選擇圖片 ${imageName} 應放置的分割鏡頭（1-${cameraRegions.length}）：`);
+        cameraImageMapping[i] = parseInt(regionIndex) - 1;
+    });
+}
+
+// 導出 ROI
+function exportROI() {
+    if (importedImages.length === 0) {
+        alert('請先導入原始鏡頭圖片');
+        return;
+    }
+    const roiTextData = [];
+    importedImages.forEach((image, imageIndex) => {
+        const regionIndex = cameraImageMapping[imageIndex];
+        const imageName = imageFilesInput.files[imageIndex].name;
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = image.width;
+        offCanvas.height = image.height;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.drawImage(image, 0, 0);
+        offCtx.lineWidth = 2;
+
+        const roiData = [];
+        roiAreas.forEach((roi) => {
+            if (roi.points.some(p => isPointInRegion(p, cameraRegions[regionIndex]))) {
+                const scaledPoints = roi.points.map(p => ({
+                    x: parseFloat((((p.x - cameraRegions[regionIndex].x) / cameraRegions[regionIndex].width) * image.width).toFixed(2)),
+                    y: parseFloat((((p.y - cameraRegions[regionIndex].y) / cameraRegions[regionIndex].height) * image.height).toFixed(2))
+                }));
+
+                // 設定每個ROI的顏色
+                offCtx.strokeStyle = roi.color || selectedColor;
+                offCtx.fillStyle = roi.color || selectedColor;
+
+                // 根據ROI類型應用透明度和填充
+                if (roi.type === 'polygon') {
+                    offCtx.globalAlpha = 0.3; // 設置多邊形為30%透明
+                    offCtx.beginPath();
+                    offCtx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
+                    scaledPoints.forEach(p => offCtx.lineTo(p.x, p.y));
+                    offCtx.closePath();
+                    offCtx.fill();
+                }
+
+                offCtx.globalAlpha = 1.0; // 重置透明度
+                offCtx.beginPath();
+                offCtx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
+                scaledPoints.forEach(p => offCtx.lineTo(p.x, p.y));
+                offCtx.closePath();
+                offCtx.stroke();
+
+                roiData.push(`ROI: ${JSON.stringify(scaledPoints)}`);
+            }
+        });
+
+        offCanvas.toBlob(blob => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${imageName}_roi.png`;
+            link.click();
+        });
+        roiTextData.push(`${imageName}\n${roiData.join('\n')}`);
+    });
+
+    const blob = new Blob([roiTextData.join('\n\n')], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'roi_coordinates.txt';
+    link.click();
+    alert('ROI 導出完成');
+}
+
+
+
+// 檢查點是否在指定的區域內
+function isPointInRegion(point, region) {
+    return point.x >= region.x && point.x <= region.x + region.width &&
+           point.y >= region.y && point.y <= region.y + region.height;
+}
+
 // 監聽工具按鈕點擊事件，切換工具和按鈕顯示
 lineToolBtn.onclick = () => selectTool('line');
 polygonToolBtn.onclick = () => selectTool('polygon');
+nextROIBtn.onclick = closePolygon; // 綁定“下一個ROI”按鈕
 colorPicker.oninput = (e) => selectedColor = e.target.value;
 
 function selectTool(tool) {
@@ -131,15 +243,17 @@ function handleLineTool(x, y) {
 
 function handlePolygonTool(x, y) {
     polygonPoints.push({ x, y });
-    if (polygonPoints.length > 2 && isCloseToFirstPoint(x, y)) {
-        roiAreas.push({ type: 'polygon', points: [...polygonPoints], color: selectedColor });
-        polygonPoints = [];
-    }
 }
 
-function isCloseToFirstPoint(x, y) {
-    const firstPoint = polygonPoints[0];
-    return Math.hypot(firstPoint.x - x, firstPoint.y - y) < 10; // 判斷是否接近首點
+// 關閉並儲存多邊形
+function closePolygon() {
+    if (polygonPoints.length > 2) {
+        roiAreas.push({ type: 'polygon', points: [...polygonPoints], color: selectedColor });
+        polygonPoints = []; // 清空點以開始新的多邊形
+        drawROI();
+    } else {
+        alert("請至少選擇三個點來閉合多邊形");
+    }
 }
 
 // 繪製鏡頭分割區域
@@ -159,15 +273,17 @@ function drawROI() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     roiAreas.forEach(area => {
         ctx.beginPath();
-        ctx.strokeStyle = area.color || 'red';
-        ctx.fillStyle = area.color || 'red';
+        ctx.strokeStyle = area.color || selectedColor;
+        ctx.fillStyle = area.color || selectedColor;
         ctx.lineWidth = 2;
 
         if (area.type === 'line') {
+            ctx.globalAlpha = 1.0; // 確保線條為不透明
             ctx.moveTo(area.points[0].x, area.points[0].y);
             ctx.lineTo(area.points[1].x, area.points[1].y);
             ctx.stroke();
         } else if (area.type === 'polygon') {
+            ctx.globalAlpha = 0.3; // 設置多邊形為30%透明
             area.points.forEach((point, index) => {
                 if (index === 0) {
                     ctx.moveTo(point.x, point.y);
@@ -176,12 +292,33 @@ function drawROI() {
                 }
             });
             ctx.closePath();
-            ctx.globalAlpha = 0.3;
-            ctx.fill(); // 30%透明度填充
-            ctx.globalAlpha = 1.0;
+            ctx.fill();
+            ctx.globalAlpha = 1.0; // 重置透明度
             ctx.stroke();
         }
     });
+}
+
+
+
+
+
+function undoLastROI() {
+    if (roiAreas.length > 0) {
+        const removedROI = roiAreas.pop(); // 移除最後一個 ROI 區域
+        canceledROIs.push(removedROI); // 將移除的 ROI 加入取消復原堆疊
+        drawROI(); // 重新繪製畫布上的 ROI 區域
+    }
+    // else 狀況下不執行任何操作
+}
+
+function redoLastROI() {
+    if (canceledROIs.length > 0) {
+        const restoredROI = canceledROIs.pop(); // 取出取消的最後一個 ROI 區域
+        roiAreas.push(restoredROI); // 將其重新加入到 roiAreas
+        drawROI(); // 重新繪製畫布上的 ROI 區域
+    }
+    // else 狀況下不執行任何操作
 }
 
 // 快轉或倒退影片
@@ -191,26 +328,25 @@ function seekVideo(seconds) {
 
 // 鍵盤事件監聽
 document.addEventListener('keydown', (e) => {
-    switch (e.key.toLowerCase()) { // 將 e.key 轉為小寫
-        case ' ': // 空白鍵
-            e.preventDefault(); // 防止頁面捲動
+    switch (e.key.toLowerCase()) {
+        case ' ':
+            e.preventDefault();
             togglePlayPause();
             break;
-        case 'w': // 上鍵
-            seekVideo(1); // 快進 1 秒
+        case 'w':
+            seekVideo(1);
             break;
-        case 's': // 下鍵
-            seekVideo(-1); // 倒退 1 秒
+        case 's':
+            seekVideo(-1);
             break;
-        case 'a': // 左鍵
-            seekVideo(-10); // 倒退 10 秒
+        case 'a':
+            seekVideo(-10);
             break;
-        case 'd': // 右鍵
-            seekVideo(10); // 快進 10 秒
+        case 'd':
+            seekVideo(10);
             break;
     }
 });
-
 
 // 綁定按鈕的 onclick
 document.getElementById('loadVideoBtn').onclick = () => {
