@@ -19,6 +19,8 @@ let canceledROIs = [];
 let currentTool = 'line'; // 預設工具為線條
 let polygonPoints = [];
 let selectedColor = colorPicker.value;
+let clickPoints = []; // 用來保存所有點擊座標
+
 
 // 加載影片
 function loadVideo(file) {
@@ -225,12 +227,16 @@ canvas.onclick = (e) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    // 保存點擊位置
+    clickPoints.push({ x, y });
+
     if (currentTool === 'line') {
         handleLineTool(x, y);
     } else if (currentTool === 'polygon') {
         handlePolygonTool(x, y);
     }
-    drawROI();
+
+    drawROI(); // 更新畫布並繪製所有點
 };
 
 function handleLineTool(x, y) {
@@ -238,8 +244,10 @@ function handleLineTool(x, y) {
     if (points.length === 2) {
         roiAreas.push({ type: 'line', points: [...points], color: selectedColor });
         points = [];
+        clickPoints = []; // 清空點擊座標
     }
 }
+
 
 function handlePolygonTool(x, y) {
     polygonPoints.push({ x, y });
@@ -249,7 +257,8 @@ function handlePolygonTool(x, y) {
 function closePolygon() {
     if (polygonPoints.length > 2) {
         roiAreas.push({ type: 'polygon', points: [...polygonPoints], color: selectedColor });
-        polygonPoints = []; // 清空點以開始新的多邊形
+        polygonPoints = [];
+        clickPoints = []; // 清空點擊座標
         drawROI();
     } else {
         alert("請至少選擇三個點來閉合多邊形");
@@ -271,6 +280,8 @@ function drawRegions() {
 // 繪製ROI
 function drawROI() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 繪製ROI區域
     roiAreas.forEach(area => {
         ctx.beginPath();
         ctx.strokeStyle = area.color || selectedColor;
@@ -278,12 +289,12 @@ function drawROI() {
         ctx.lineWidth = 2;
 
         if (area.type === 'line') {
-            ctx.globalAlpha = 1.0; // 確保線條為不透明
+            ctx.globalAlpha = 1.0;
             ctx.moveTo(area.points[0].x, area.points[0].y);
             ctx.lineTo(area.points[1].x, area.points[1].y);
             ctx.stroke();
         } else if (area.type === 'polygon') {
-            ctx.globalAlpha = 0.3; // 設置多邊形為30%透明
+            ctx.globalAlpha = 0.3;
             area.points.forEach((point, index) => {
                 if (index === 0) {
                     ctx.moveTo(point.x, point.y);
@@ -293,10 +304,21 @@ function drawROI() {
             });
             ctx.closePath();
             ctx.fill();
-            ctx.globalAlpha = 1.0; // 重置透明度
+            ctx.globalAlpha = 1.0;
             ctx.stroke();
         }
     });
+
+    // 繪製所有點擊的座標點（僅當有點擊位置）
+    if (clickPoints.length > 0) {
+        ctx.fillStyle = 'blue'; // 點的顏色
+        clickPoints.forEach(point => {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 5, 0, Math.PI * 2); // 繪製半徑為5的圓點
+            ctx.fill();
+            ctx.closePath();
+        });
+    }
 }
 
 
