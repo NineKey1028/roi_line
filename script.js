@@ -34,14 +34,7 @@ function loadVideo(file) {
     }
 }
 
-// 播放/暫停影片
-function togglePlayPause() {
-    if (video.paused) {
-        video.play();
-    } else {
-        video.pause();
-    }
-}
+
 
 // 設置拖放區域，允許將影片檔拖入來載入
 const videoContainer = document.getElementById('videoContainer');
@@ -355,8 +348,21 @@ document.addEventListener('keydown', (e) => {
     switch (e.key.toLowerCase()) {
         case ' ':
             e.preventDefault();
-            togglePlayPause();
+            playPauseControl.click();
             break;
+        case 'arrowup':
+            seekVideo(1);
+            break;
+        case 'arrowdown':
+            seekVideo(-1);
+            break;
+        case 'arrowleft':
+            seekVideo(-10);
+            break;
+        case 'arrowright':
+            seekVideo(10);
+            break;
+
         case 'w':
             seekVideo(1);
             break;
@@ -383,7 +389,7 @@ document.getElementById('loadVideoBtn').onclick = () => {
     };
     fileInput.click();
 };
-document.getElementById('playPauseBtn').onclick = togglePlayPause;
+
 document.getElementById('splitScreenBtn').onclick = () => splitScreen(parseInt(cameraCountInput.value));
 document.getElementById('importImagesBtn').onclick = importImages;
 document.getElementById('exportROIBtn').onclick = exportROI;
@@ -404,6 +410,7 @@ function formatTime(seconds) {
     const sec = Math.floor(seconds % 60);
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 }
+
 
 // 初始化總時長顯示
 video.addEventListener('loadedmetadata', () => {
