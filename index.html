@@ -14,14 +14,14 @@
     </div>
     <div>
         <button id="loadVideoBtn">導入影片</button>
-        <button id="playPauseBtn">播放/暫停</button>
+        <button id="playPauseBtn">||</button>
         <button id="importImagesBtn">導入原始鏡頭片</button>
         <button id="exportROIBtn">導出 ROI</button>
         <button id="undoROIBtn">↶</button>
         <button id="redoROIBtn">↷</button>
         <button id="lineToolBtn">線條</button>
         <button id="polygonToolBtn">多邊型</button>
-        <button id="nextROIBtn">下一個 ROI</button> <!-- 新增的按鈕 -->
+        <button id="nextROIBtn">下一個 ROI</button>
         <input type="color" id="colorPicker" value="#ff0000">
 
         <input type="file" id="imageFiles" accept="image/*" multiple style="display: none;">
@@ -30,6 +30,22 @@
         <video id="video"></video>
         <canvas id="canvas"></canvas>
     </div>
+
+    <!-- 新增的控制器區塊 -->
+    <div id="controlsContainer">
+        <button id="playPauseControl">||</button>
+        <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
+        <input type="range" id="timeSlider" min="0" value="0">
+        <span id="tooltip" class="tooltip"></span>
+        <label for="speedControl">速度：</label>
+        <select id="speedControl">
+            <option value="0.5">0.5x</option>
+            <option value="1" selected>1x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2x</option>
+        </select>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

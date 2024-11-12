@@ -205,9 +205,11 @@ function exportROI() {
 
 // 檢查點是否在指定的區域內
 function isPointInRegion(point, region) {
+    if (!region) return false; // 如果 region 未定義，直接返回 false
     return point.x >= region.x && point.x <= region.x + region.width &&
            point.y >= region.y && point.y <= region.y + region.height;
 }
+
 
 // 監聽工具按鈕點擊事件，切換工具和按鈕顯示
 lineToolBtn.onclick = () => selectTool('line');
@@ -387,3 +389,69 @@ document.getElementById('importImagesBtn').onclick = importImages;
 document.getElementById('exportROIBtn').onclick = exportROI;
 document.getElementById('undoROIBtn').onclick = undoLastROI;
 document.getElementById('redoROIBtn').onclick = redoLastROI;
+
+
+const playPauseControl = document.getElementById('playPauseControl');
+const timeSlider = document.getElementById('timeSlider');
+const speedControl = document.getElementById('speedControl');
+const currentTimeDisplay = document.getElementById('currentTime');
+const totalTimeDisplay = document.getElementById('totalTime');
+const tooltip = document.getElementById('tooltip');
+
+// 格式化時間
+function formatTime(seconds) {
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+}
+
+// 初始化總時長顯示
+video.addEventListener('loadedmetadata', () => {
+    timeSlider.max = video.duration;
+    totalTimeDisplay.textContent = formatTime(video.duration);
+});
+
+// 更新目前時間顯示
+video.addEventListener('timeupdate', () => {
+    timeSlider.value = video.currentTime;
+    currentTimeDisplay.textContent = formatTime(video.currentTime);
+});
+
+// 播放/暫停按鈕的功能
+playPauseControl.addEventListener('click', () => {
+    if (video.paused) {
+        video.play();
+        playPauseControl.textContent = '||';
+    } else {
+        video.pause();
+        playPauseControl.textContent = '▶';
+    }
+});
+
+// 調整影片時間軸
+timeSlider.addEventListener('input', () => {
+    video.currentTime = timeSlider.value;
+});
+
+// 顯示滑鼠在時間軸上的段落時間
+timeSlider.addEventListener('mousemove', (e) => {
+    const rect = timeSlider.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const previewTime = percent * video.duration;
+
+    // 調整 tooltip 位置，加入偏移量
+    const offset = 200; // 偏移量，用於微調 tooltip 的位置
+    tooltip.style.left = `${e.clientX - rect.left + offset}px`;
+    tooltip.style.transform = `translateX(-50%)`;
+    tooltip.style.display = 'block';
+    tooltip.textContent = formatTime(previewTime);
+});
+
+timeSlider.addEventListener('mouseleave', () => {
+    tooltip.style.display = 'none';
+});
+
+// 調整播放速度
+speedControl.addEventListener('change', () => {
+    video.playbackRate = parseFloat(speedControl.value);
+});
