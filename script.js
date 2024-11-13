@@ -57,7 +57,7 @@ canvas.onclick = (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
+    clickPoints.push({ x, y });
     if (isSelectMode) {
         selectedROI = null;
         for (let roi of roiAreas) {
@@ -66,7 +66,7 @@ canvas.onclick = (e) => {
                 break;
             }
         }
-        drawROI();
+        drawAll();
     } else {
         if (currentTool === 'line') {
             handleLineTool(x, y);
@@ -81,10 +81,10 @@ canvas.onclick = (e) => {
                 roiAreas.push(currentSquare);
                 isDrawingSquare = false;
                 currentSquare = null;
-                drawROI();
+                drawAll();
             }
         }
-        drawROI();
+        drawAll();
     }
 };
 
@@ -95,7 +95,7 @@ canvas.onmousemove = (e) => {
         const y = e.clientY - rect.top;
         currentSquare.x = x - currentSquare.size / 2;
         currentSquare.y = y - currentSquare.size / 2;
-        drawROI();
+        drawAll();
     }
 };
 
@@ -164,7 +164,7 @@ document.addEventListener('keydown', (e) => {
         if (index > -1) {
             roiAreas.splice(index, 1); // 從陣列中移除選中的ROI
             selectedROI = null; // 重置選中
-            drawROI(); // 重新繪製
+            drawAll(); // 重新繪製
         }
     }
 });
@@ -287,14 +287,14 @@ function closePolygon() {
         roiAreas.push({ type: 'polygon', points: [...polygonPoints], color: selectedColor });
         polygonPoints = [];
         clickPoints = []; // 清除點擊座標
-        drawROI();
+        drawAll();
     } else if (currentTool === 'square' && currentSquare) {
         // 鎖定正方形並儲存到roiAreas
         currentSquare.type = 'square';
         roiAreas.push(currentSquare);
         isDrawingSquare = false;
         currentSquare = null; // 清除暫存的正方形
-        drawROI();
+        drawAll();
     } else if (currentTool === 'polygon') {
         alert("請至少選擇三個點來閉合多邊形");
     }
@@ -303,7 +303,7 @@ function closePolygon() {
 
 // 繪圖函數
 // 繪製攝像機區域
-function drawRegions() {
+function drawAll() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 4;
@@ -316,9 +316,20 @@ function drawRegions() {
 }
 
 // 繪製 ROI
-function drawROI() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function drawAll() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除 Canvas
 
+    // 繪製攝像機區域
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 4;
+    ctx.font = '24px Arial';
+    cameraRegions.forEach(region => {
+        ctx.strokeRect(region.x, region.y, region.width, region.height);
+        ctx.fillStyle = 'red';
+        ctx.fillText(`cam ${region.index}`, region.x + 10, region.y + 20);
+    });
+
+    // 繪製所有 ROI
     roiAreas.forEach(area => {
         ctx.beginPath();
         ctx.strokeStyle = area.color || selectedColor;
@@ -358,6 +369,16 @@ function drawROI() {
         ctx.lineWidth = 4; // 正在繪製的正方形的邊框寬度
         ctx.strokeRect(currentSquare.x, currentSquare.y, currentSquare.size, currentSquare.size);
     }
+    // 繪製所有點擊的座標點
+    if (currentTool === 'line' || currentTool === 'polygon') {
+        ctx.fillStyle = 'blue'; // 點的顏色
+        clickPoints.forEach(point => {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 5, 0, Math.PI * 2); // 繪製半徑為5的圓點
+            ctx.fill();
+            ctx.closePath();
+        });
+    }
 }
 
 // 分割畫面的函數
@@ -396,7 +417,7 @@ function splitScreen(count) {
             index++;
         }
     }
-    drawRegions();
+    drawAll(); // 確保每次分割畫面後更新整個畫布
     setupCameraImageMapping();
 }
 
@@ -518,7 +539,7 @@ function undoLastROI() {
     if (roiAreas.length > 0) {
         const removedROI = roiAreas.pop();
         canceledROIs.push(removedROI);
-        drawROI();
+        drawAll();
     }
 }
 
@@ -526,7 +547,7 @@ function redoLastROI() {
     if (canceledROIs.length > 0) {
         const restoredROI = canceledROIs.pop();
         roiAreas.push(restoredROI);
-        drawROI();
+        drawAll();
     }
 }
 
@@ -731,7 +752,7 @@ loadBtn.onclick = () => {
 
         // 顯示 ROI 並播放影片
         video.onloadeddata = () => {
-            drawROI();
+            drawAll();
             video.play();
         };
 
