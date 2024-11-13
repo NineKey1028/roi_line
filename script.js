@@ -11,6 +11,12 @@ let selectedColor;
 let clickPoints = []; // 用來保存所有點擊座標
 let isSelectMode = false;
 let selectedROI = null;
+let isDrawingSquare = false;
+let startSquarePoint = null;
+let currentSquare = null;
+let isDraggingSquare = false; // 用來控制拖曳狀態
+let dragOffsetX = 0;
+let dragOffsetY = 0;
 
 // 從 DOM 中獲取元素
 const video = document.getElementById('video');
@@ -20,6 +26,7 @@ const cameraCountInput = document.getElementById('cameraCount');
 cameraCountInput.value = 6;
 const lineToolBtn = document.getElementById('lineToolBtn');
 const polygonToolBtn = document.getElementById('polygonToolBtn');
+const squareToolBtn = document.getElementById('squareToolBtn');
 const nextROIBtn = document.getElementById('nextROIBtn');
 const colorPicker = document.getElementById('colorPicker');
 selectedColor = colorPicker.value;
@@ -41,6 +48,7 @@ toggleSelectModeBtn.textContent = "👆🏻"; // 使用鼠標符號
 toggleSelectModeBtn.onclick = () => selectTool('select');
 lineToolBtn.onclick = () => selectTool('line');
 polygonToolBtn.onclick = () => selectTool('polygon');
+squareToolBtn.onclick = () => selectTool('square');
 nextROIBtn.onclick = closePolygon; // 綁定“下一個ROI”按鈕
 colorPicker.oninput = (e) => selectedColor = e.target.value;
 
@@ -64,9 +72,41 @@ canvas.onclick = (e) => {
             handleLineTool(x, y);
         } else if (currentTool === 'polygon') {
             handlePolygonTool(x, y);
+        } else if (currentTool === 'square') {
+            if (!isDrawingSquare) {
+                startSquarePoint = { x, y };
+                currentSquare = { x, y, size: 10, color: selectedColor };
+                isDrawingSquare = true;
+            } else {
+                roiAreas.push(currentSquare);
+                isDrawingSquare = false;
+                currentSquare = null;
+                drawROI();
+            }
         }
         drawROI();
     }
+};
+
+canvas.onmousemove = (e) => {
+    if (isDraggingSquare && currentTool === 'square' && currentSquare) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        currentSquare.x = x - currentSquare.size / 2;
+        currentSquare.y = y - currentSquare.size / 2;
+        drawROI();
+    }
+};
+
+canvas.onmousedown = (e) => {
+    if (currentTool === 'square' && currentSquare) {
+        isDraggingSquare = true; // 啟用拖曳
+    }
+};
+
+canvas.onmouseup = (e) => {
+    isDraggingSquare = false; // 解除拖曳
 };
 
 // videoContainer 的拖放事件監聽器
@@ -200,16 +240,12 @@ video.addEventListener('timeupdate', () => {
 
 // 選擇工具的函數
 function selectTool(tool) {
-    // 根據選取的工具設定 currentTool 並更新按鈕狀態
     currentTool = tool;
-
-    // 重置所有工具按鈕的選中狀態
+    isSelectMode = (tool === 'select');
     lineToolBtn.classList.toggle('selected', tool === 'line');
     polygonToolBtn.classList.toggle('selected', tool === 'polygon');
+    squareToolBtn.classList.toggle('selected', tool === 'square');
     toggleSelectModeBtn.classList.toggle('selected', tool === 'select');
-
-    // 更新 isSelectMode 狀態
-    isSelectMode = (tool === 'select');
 }
 
 // 影片函數
@@ -246,15 +282,24 @@ function handlePolygonTool(x, y) {
 
 // 關閉並保存多邊形
 function closePolygon() {
-    if (polygonPoints.length > 2) {
+    if (currentTool === 'polygon' && polygonPoints.length > 2) {
+        // 關閉多邊形並儲存到roiAreas
         roiAreas.push({ type: 'polygon', points: [...polygonPoints], color: selectedColor });
         polygonPoints = [];
         clickPoints = []; // 清除點擊座標
         drawROI();
-    } else {
+    } else if (currentTool === 'square' && currentSquare) {
+        // 鎖定正方形並儲存到roiAreas
+        currentSquare.type = 'square';
+        roiAreas.push(currentSquare);
+        isDrawingSquare = false;
+        currentSquare = null; // 清除暫存的正方形
+        drawROI();
+    } else if (currentTool === 'polygon') {
         alert("請至少選擇三個點來閉合多邊形");
     }
 }
+
 
 // 繪圖函數
 // 繪製攝像機區域
@@ -274,47 +319,44 @@ function drawRegions() {
 function drawROI() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 繪製每個 ROI 區域
     roiAreas.forEach(area => {
         ctx.beginPath();
-        
-        // 設置選中和未選中 ROI 的樣式
         ctx.strokeStyle = area.color || selectedColor;
-        ctx.fillStyle = area.color || selectedColor;
-        ctx.lineWidth = area === selectedROI ? 4 : 2; // 若為選中 ROI，則線條加粗
+
+        // 設置線條寬度：若是選中的ROI，則加粗
+        if (area.type === 'square') {
+            ctx.lineWidth = area === selectedROI ? 6 : 4; // 選中的正方形線條更粗
+        } else {
+            ctx.lineWidth = area === selectedROI ? 4 : 2; // 其他類型的ROI
+        }
 
         if (area.type === 'line') {
-            // 繪製線條 ROI
-            ctx.globalAlpha = 1.0;
             ctx.moveTo(area.points[0].x, area.points[0].y);
             ctx.lineTo(area.points[1].x, area.points[1].y);
             ctx.stroke();
         } else if (area.type === 'polygon') {
-            // 繪製多邊形 ROI
-            ctx.globalAlpha = 0.3; // 設置多邊形的透明度
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = area.color || selectedColor;
             area.points.forEach((point, index) => {
-                if (index === 0) {
-                    ctx.moveTo(point.x, point.y);
-                } else {
-                    ctx.lineTo(point.x, point.y);
-                }
+                if (index === 0) ctx.moveTo(point.x, point.y);
+                else ctx.lineTo(point.x, point.y);
             });
             ctx.closePath();
-            ctx.fill(); // 填充多邊形
-            ctx.globalAlpha = 1.0; // 重置透明度
-            ctx.stroke(); // 描邊多邊形
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+            ctx.stroke();
+        } else if (area.type === 'square') {
+            // 繪製正方形ROI
+            ctx.globalAlpha = 1.0;
+            ctx.strokeRect(area.x, area.y, area.size, area.size);
         }
     });
 
-    // 繪製點擊點（如果有）
-    if (clickPoints.length > 0) {
-        ctx.fillStyle = 'blue';
-        clickPoints.forEach(point => {
-            ctx.beginPath();
-            ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.closePath();
-        });
+    // 繪製當前正在繪製的正方形（若存在）
+    if (isDrawingSquare && currentSquare) {
+        ctx.strokeStyle = currentSquare.color;
+        ctx.lineWidth = 4; // 正在繪製的正方形的邊框寬度
+        ctx.strokeRect(currentSquare.x, currentSquare.y, currentSquare.size, currentSquare.size);
     }
 }
 
@@ -409,21 +451,19 @@ function exportROI() {
         offCanvas.height = image.height;
         const offCtx = offCanvas.getContext('2d');
         offCtx.drawImage(image, 0, 0);
-        offCtx.lineWidth = 2;
 
         const roiData = [];
         roiAreas.forEach((roi) => {
-            if (roi.points.some(p => isPointInRegion(p, cameraRegions[regionIndex]))) {
+            if (roi.points && roi.points.some(p => isPointInRegion(p, cameraRegions[regionIndex]))) {
                 const scaledPoints = roi.points.map(p => ({
                     x: parseFloat((((p.x - cameraRegions[regionIndex].x) / cameraRegions[regionIndex].width) * image.width).toFixed(2)),
                     y: parseFloat((((p.y - cameraRegions[regionIndex].y) / cameraRegions[regionIndex].height) * image.height).toFixed(2))
                 }));
 
-                // 設置每個 ROI 的顏色
                 offCtx.strokeStyle = roi.color || selectedColor;
                 offCtx.fillStyle = roi.color || selectedColor;
+                offCtx.lineWidth = roi.type === 'square' ? 4 : 2; // 設置正方形和多邊形線條寬度
 
-                // 根據 ROI 類型應用透明度和填充
                 if (roi.type === 'polygon') {
                     offCtx.globalAlpha = 0.3;
                     offCtx.beginPath();
@@ -441,6 +481,17 @@ function exportROI() {
                 offCtx.stroke();
 
                 roiData.push(`ROI: ${JSON.stringify(scaledPoints)}`);
+            } else if (roi.type === 'square') {
+                // 正方形ROI的特殊處理，設置顏色與線條寬度
+                const scaledX = parseFloat((((roi.x - cameraRegions[regionIndex].x) / cameraRegions[regionIndex].width) * image.width).toFixed(2));
+                const scaledY = parseFloat((((roi.y - cameraRegions[regionIndex].y) / cameraRegions[regionIndex].height) * image.height).toFixed(2));
+                const scaledSize = parseFloat(((roi.size / cameraRegions[regionIndex].width) * image.width).toFixed(2));
+
+                offCtx.strokeStyle = roi.color || selectedColor;
+                offCtx.lineWidth = 4; // 設置正方形的線條寬度
+                offCtx.strokeRect(scaledX, scaledY, scaledSize, scaledSize);
+                
+                roiData.push(`Square ROI: { x: ${scaledX}, y: ${scaledY}, size: ${scaledSize} }`);
             }
         });
 
@@ -460,6 +511,7 @@ function exportROI() {
     link.click();
     alert('ROI 導出完成');
 }
+
 
 // 撤銷/重做函數
 function undoLastROI() {
@@ -510,6 +562,20 @@ function isPointNearROI(x, y, roi) {
         offscreenCtx.closePath();
 
         return offscreenCtx.isPointInPath(x, y);
+    } else if (roi.type === 'square') {
+        // 判斷點是否在正方形邊框的附近
+        return (
+            x >= roi.x - threshold &&
+            x <= roi.x + roi.size + threshold &&
+            y >= roi.y - threshold &&
+            y <= roi.y + roi.size + threshold &&
+            (
+                Math.abs(x - roi.x) <= threshold || // 左邊界
+                Math.abs(x - (roi.x + roi.size)) <= threshold || // 右邊界
+                Math.abs(y - roi.y) <= threshold || // 上邊界
+                Math.abs(y - (roi.y + roi.size)) <= threshold // 下邊界
+            )
+        );
     }
     return false;
 }
