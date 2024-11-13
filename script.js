@@ -462,13 +462,20 @@ function setupCameraImageMapping() {
 // 導出 ROI 的函數
 function exportROI() {
     if (importedImages.length === 0) {
-        alert('请先導入原始镜头圖片');
+        alert('請先導入原始鏡頭圖片');
         return;
     }
+
     const roiTextData = [];
     importedImages.forEach((image, imageIndex) => {
         const regionIndex = cameraImageMapping[imageIndex];
         const imageName = imageFilesInput.files[imageIndex].name;
+
+        if (regionIndex === undefined || cameraRegions[regionIndex] === undefined) {
+            console.warn(`跳過未匹配的鏡頭 ${imageName}`);
+            return;
+        }
+
         const offCanvas = document.createElement('canvas');
         offCanvas.width = image.width;
         offCanvas.height = image.height;
@@ -477,43 +484,48 @@ function exportROI() {
 
         const roiData = [];
         roiAreas.forEach((roi) => {
-            if (roi.points && roi.points.some(p => isPointInRegion(p, cameraRegions[regionIndex]))) {
+            // 處理線條類型
+            if (roi.type === 'line' && roi.points) {
                 const scaledPoints = roi.points.map(p => ({
                     x: parseFloat((((p.x - cameraRegions[regionIndex].x) / cameraRegions[regionIndex].width) * image.width).toFixed(2)),
                     y: parseFloat((((p.y - cameraRegions[regionIndex].y) / cameraRegions[regionIndex].height) * image.height).toFixed(2))
                 }));
-
                 offCtx.strokeStyle = roi.color || selectedColor;
+                offCtx.beginPath();
+                offCtx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
+                offCtx.lineTo(scaledPoints[1].x, scaledPoints[1].y);
+                offCtx.stroke();
+                roiData.push(`Line ROI: ${JSON.stringify(scaledPoints)}`);
+            }
+
+            // 處理多邊形類型
+            else if (roi.type === 'polygon' && roi.points) {
+                const scaledPoints = roi.points.map(p => ({
+                    x: parseFloat((((p.x - cameraRegions[regionIndex].x) / cameraRegions[regionIndex].width) * image.width).toFixed(2)),
+                    y: parseFloat((((p.y - cameraRegions[regionIndex].y) / cameraRegions[regionIndex].height) * image.height).toFixed(2))
+                }));
                 offCtx.fillStyle = roi.color || selectedColor;
-                offCtx.lineWidth = roi.type === 'square' ? 4 : 2; // 设置正方形和多边形线条宽度
-
-                if (roi.type === 'polygon') {
-                    offCtx.globalAlpha = 0.3;
-                    offCtx.beginPath();
-                    offCtx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
-                    scaledPoints.forEach(p => offCtx.lineTo(p.x, p.y));
-                    offCtx.closePath();
-                    offCtx.fill();
-                }
-
-                offCtx.globalAlpha = 1.0;
+                offCtx.globalAlpha = 0.3;
                 offCtx.beginPath();
                 offCtx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
                 scaledPoints.forEach(p => offCtx.lineTo(p.x, p.y));
                 offCtx.closePath();
+                offCtx.fill();
+                offCtx.globalAlpha = 1.0;
+                offCtx.strokeStyle = roi.color || selectedColor;
                 offCtx.stroke();
+                roiData.push(`Polygon ROI: ${JSON.stringify(scaledPoints)}`);
+            }
 
-                roiData.push(`ROI: ${JSON.stringify(scaledPoints)}`);
-            } else if (roi.type === 'square') {
-                // 正方形ROI的特殊處理，设置颜色与线条宽度
+            // 處理正方形類型
+            else if (roi.type === 'square') {
                 const scaledX = parseFloat((((roi.x - cameraRegions[regionIndex].x) / cameraRegions[regionIndex].width) * image.width).toFixed(2));
                 const scaledY = parseFloat((((roi.y - cameraRegions[regionIndex].y) / cameraRegions[regionIndex].height) * image.height).toFixed(2));
                 const scaledSize = parseFloat(((roi.size / cameraRegions[regionIndex].width) * image.width).toFixed(2));
 
                 offCtx.strokeStyle = roi.color || selectedColor;
-                offCtx.lineWidth = 4; // 设置正方形的线条宽度
+                offCtx.lineWidth = 4; // 设置正方形的線條寬度
                 offCtx.strokeRect(scaledX, scaledY, scaledSize, scaledSize);
-                
                 roiData.push(`Square ROI: { x: ${scaledX}, y: ${scaledY}, size: ${scaledSize} }`);
             }
         });
@@ -534,6 +546,7 @@ function exportROI() {
     link.click();
     alert('ROI 導出完成');
 }
+
 
 // 撤销/重做函數
 function undoLastROI() {
