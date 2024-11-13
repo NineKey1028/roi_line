@@ -8,8 +8,17 @@
 <body>
     <h1>ROI 繪製工具</h1>
     <div>
-        <label for="cameraCount">輸入鏡頭數量（2-9）：</label>
-        <input type="number" id="cameraCount" min="2" max="9" value="2">
+        <label for="cameraCount">選擇鏡頭數量（2-9）：</label>
+        <select id="cameraCount">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+        </select>
         <button id="splitScreenBtn">分割畫面</button>
     </div>
     <div>
@@ -33,16 +42,19 @@
 
     <!-- 新增的控制器區塊 -->
     <div id="controlsContainer">
-        <button id="playPauseControl">||</button>
+        <button id="playPauseControl">⏸</button>
         <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
         <input type="range" id="timeSlider" min="0" value="0">
         <span id="tooltip" class="tooltip"></span>
         <label for="speedControl">速度：</label>
         <select id="speedControl">
-            <option value="0.5">0.5x</option>
-            <option value="1" selected>1x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2x</option>
+            <option value="2">2.0 x</option>
+            <option value="1.5">1.5 x</option>
+            <option value="1" selected>1.0 x</option>
+            <option value="0.5">0.5 x</option>
+            <option value="0.25">0.25 x</option>
+            
+            
         </select>
     </div>
 

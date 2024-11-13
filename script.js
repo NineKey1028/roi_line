@@ -9,6 +9,12 @@ const nextROIBtn = document.getElementById('nextROIBtn'); // 新增按鈕元素
 const colorPicker = document.getElementById('colorPicker');
 cameraCountInput.value = 6;
 const imageFilesInput = document.getElementById('imageFiles');
+const playPauseControl = document.getElementById('playPauseControl');
+const timeSlider = document.getElementById('timeSlider');
+const speedControl = document.getElementById('speedControl');
+const currentTimeDisplay = document.getElementById('currentTime');
+const totalTimeDisplay = document.getElementById('totalTime');
+const tooltip = document.getElementById('tooltip');
 
 let cameraRegions = [];
 let roiAreas = [];
@@ -397,12 +403,7 @@ document.getElementById('undoROIBtn').onclick = undoLastROI;
 document.getElementById('redoROIBtn').onclick = redoLastROI;
 
 
-const playPauseControl = document.getElementById('playPauseControl');
-const timeSlider = document.getElementById('timeSlider');
-const speedControl = document.getElementById('speedControl');
-const currentTimeDisplay = document.getElementById('currentTime');
-const totalTimeDisplay = document.getElementById('totalTime');
-const tooltip = document.getElementById('tooltip');
+
 
 // 格式化時間
 function formatTime(seconds) {
@@ -428,10 +429,10 @@ video.addEventListener('timeupdate', () => {
 playPauseControl.addEventListener('click', () => {
     if (video.paused) {
         video.play();
-        playPauseControl.textContent = '||';
+        playPauseControl.textContent = '⏸';
     } else {
         video.pause();
-        playPauseControl.textContent = '▶';
+        playPauseControl.textContent = '⏵';
     }
 });
 
