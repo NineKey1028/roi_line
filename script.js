@@ -73,8 +73,20 @@ video.onloadedmetadata = () => {
 // 分割畫面
 function splitScreen(count) {
     cameraRegions = [];
-    const cols = 3;
-    const rows = Math.ceil(count / cols);
+    let cols; // x 軸的鏡頭數量
+
+    // 設置 x 軸鏡頭數量依據鏡頭數
+    if (count === 2) {
+        cols = 2;
+    } else if (count === 3) {
+        cols = 3;
+    } else if (count === 4) {
+        cols = 2;
+    } else {
+        cols = 3; // 其他情況默認為 3
+    }
+
+    const rows = Math.ceil(count / cols); // 自動計算行數
     const videoDisplayWidth = video.clientWidth;
     const videoDisplayHeight = video.clientHeight;
     const cellWidth = videoDisplayWidth / cols;
@@ -271,10 +283,11 @@ function drawRegions() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 4;
+    ctx.font = '24px Arial';
     cameraRegions.forEach(region => {
         ctx.strokeRect(region.x, region.y, region.width, region.height);
         ctx.fillStyle = 'red';
-        ctx.fillText(`鏡頭 ${region.index}`, region.x + 10, region.y + 20);
+        ctx.fillText(`cam ${region.index}`, region.x + 10, region.y + 20);
     });
 }
 
