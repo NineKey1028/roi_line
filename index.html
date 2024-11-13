@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>ROI 繪製工具</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
 </head>
 <body>
     <h1>ROI 繪製工具</h1>
@@ -28,12 +30,15 @@
         <button id="exportROIBtn">導出 ROI</button>
         <button id="undoROIBtn">↶</button>
         <button id="redoROIBtn">↷</button>
+        <button id="toggleSelectModeBtn">👆🏻</button>
         <button id="lineToolBtn">線條</button>
         <button id="polygonToolBtn">多邊型</button>
         <button id="nextROIBtn">下一個 ROI</button>
         <input type="color" id="colorPicker" value="#ff0000">
-
         <input type="file" id="imageFiles" accept="image/*" multiple style="display: none;">
+
+        <button id="saveBtn">💾</button>
+        <button id="loadBtn">讀取💾</button>
     </div>
     <div id="videoContainer">
         <video id="video"></video>
