@@ -5,7 +5,6 @@
     <title>ROI 繪製工具</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
-
 </head>
 <body>
     <h1>ROI 繪製工具</h1>
@@ -24,31 +23,28 @@
         <button id="splitScreenBtn">分割畫面</button>
     </div>
     <div>
-        <button id="loadVideoBtn">導入影片</button>
-
-        <button id="importImagesBtn">導入原始鏡頭片</button>
-        <button id="exportROIBtn">導出 ROI</button>
-        <button id="undoROIBtn">↶</button>
-        <button id="redoROIBtn">↷</button>
-        <button id="toggleSelectModeBtn">↖︎</button>
-        <button id="lineToolBtn">╲</button>
-        <button id="polygonToolBtn">⭔</button>
-        <button id="squareToolBtn">■</button>
-        <button id="nextROIBtn">下一個 ROI</button>
+        <button id="loadVideoBtn" title="導入影片">導入影片</button>
+        <button id="importImagesBtn" title="導入原始鏡頭片">導入原始鏡頭片</button>
+        <button id="exportROIBtn" title="導出 ROI">導出 ROI</button>
+        <button id="undoROIBtn" title="撤銷">↶</button>
+        <button id="redoROIBtn" title="復原">↷</button>
+        <button id="toggleSelectModeBtn" title="選擇模式">↖︎</button>
+        <button id="lineToolBtn" title="繪製線條">╲</button>
+        <button id="polygonToolBtn" title="繪製多邊形">⭔</button>
+        <button id="squareToolBtn" title="繪製正方形">■</button>
+        <button id="nextROIBtn" title="下一個 ROI">下一個 ROI</button>
         <input type="color" id="colorPicker" value="#ff0000">
         <input type="file" id="imageFiles" accept="image/*" multiple style="display: none;">
-
-        <button id="saveBtn">💾</button>
-        <button id="loadBtn">讀取💾</button>
+        <button id="saveBtn" title="保存項目">💾</button>
+        <button id="loadBtn" title="讀取項目">讀取💾</button>
     </div>
     <div id="videoContainer">
         <video id="video"></video>
         <canvas id="canvas"></canvas>
     </div>
 
-    <!-- 新增的控制器區塊 -->
     <div id="controlsContainer">
-        <button id="playPauseControl">⏸</button>
+        <button id="playPauseControl" title="播放/暫停">⏸</button>
         <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
         <input type="range" id="timeSlider" min="0" value="0">
         <span id="tooltip" class="tooltip"></span>
@@ -59,8 +55,6 @@
             <option value="1" selected>1.0 x</option>
             <option value="0.5">0.5 x</option>
             <option value="0.25">0.25 x</option>
-            
-            
         </select>
     </div>
 

@@ -227,22 +227,21 @@ video.onloadedmetadata = () => {
 
 // 鍵盤事件監聽器
 document.addEventListener('keydown', (e) => {
-    // 檢查是否按下 Ctrl 鍵
     const isCtrlPressed = e.ctrlKey || e.metaKey;
 
     if (isCtrlPressed) {
         switch (e.key.toLowerCase()) {
-            case 'z': // Ctrl + Z
-                e.preventDefault(); // 防止瀏覽器默認操作
-                undoLastROI(); // 調用撤銷函數
+            case 'z':
+                e.preventDefault();
+                undoLastROI();
                 break;
-            case 'y': // Ctrl + Y
-                e.preventDefault(); // 防止瀏覽器默認操作
-                redoLastROI(); // 調用復原函數
+            case 'y':
+                e.preventDefault();
+                redoLastROI();
                 break;
-            case 's': // Ctrl + S
-                e.preventDefault(); // 防止瀏覽器默認的保存頁面操作
-                saveBtn.click(); // 觸發保存按鈕
+            case 's':
+                e.preventDefault();
+                saveBtn.click();
                 break;
         }
     } else {
@@ -251,19 +250,21 @@ document.addEventListener('keydown', (e) => {
                 e.preventDefault();
                 playPauseControl.click();
                 break;
-            case 'arrowup': // 快進/快退
+            case 'arrowup': // 快進
             case 'w':
+                e.preventDefault();
                 seekVideo(0.1);
                 break;
-            case 'arrowdown':
+            case 'arrowdown': // 快退
             case 's':
+                e.preventDefault();
                 seekVideo(-0.1);
                 break;
-            case 'arrowleft':
+            case 'arrowleft': // 倒退
             case 'a':
                 seekVideo(-1);
                 break;
-            case 'arrowright':
+            case 'arrowright': // 快進
             case 'd':
                 seekVideo(1);
                 break;
@@ -281,13 +282,12 @@ document.addEventListener('keydown', (e) => {
                 break;
         }
 
-        // 刪除選定 ROI
         if (e.key === 'Delete' && selectedROI) {
             const index = roiAreas.indexOf(selectedROI);
             if (index > -1) {
-                roiAreas.splice(index, 1); // 從數组中移除選中的ROI
-                selectedROI = null; // 重置選中
-                drawAll(); // 重新繪制
+                roiAreas.splice(index, 1);
+                selectedROI = null;
+                drawAll();
             }
         }
     }
@@ -408,13 +408,13 @@ function handlePolygonTool(x, y) {
 // 關閉並保存多邊形
 function closePolygon() {
     if (currentTool === 'polygon' && polygonPoints.length > 2) {
-        // 关闭多边形並保存到roiAreas
+        // 關閉多邊形並保存到roiAreas
         roiAreas.push({ type: 'polygon', points: [...polygonPoints], color: selectedColor });
         polygonPoints = [];
         clickPoints = []; // 清除點擊座標
         drawAll();
     } else if (currentTool === 'polygon') {
-        alert("请至少選擇三個點来闭合多边形");
+        alert("請至少點擊三個點来閉合多邊形");
     }
 }
 
@@ -572,7 +572,7 @@ function setupCameraImageMapping() {
     cameraImageMapping = Array(cameraRegions.length).fill(null);
     importedImages.forEach((image, i) => {
         const imageName = imageFilesInput.files[i].name;
-        const regionIndex = prompt(`请選擇圖片 ${imageName} 应放置的分割镜头（1-${cameraRegions.length}）：`);
+        const regionIndex = prompt(`請選擇圖片 ${imageName} 應放置的分割鏡頭（1-${cameraRegions.length}）：`);
         cameraImageMapping[i] = parseInt(regionIndex) - 1;
     });
 }
