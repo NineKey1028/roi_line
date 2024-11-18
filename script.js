@@ -549,7 +549,7 @@ function importImages() {
 imageFilesInput.onchange = (e) => {
     const files = e.target.files;
     if (files.length !== cameraRegions.length) {
-        alert('導入的圖片數量与镜头數量不符');
+        alert('導入的圖片數量與鏡頭數量不符');
         return;
     }
     importedImages = [];
@@ -559,7 +559,7 @@ imageFilesInput.onchange = (e) => {
         img.onload = () => {
             loadedCount++;
             if (loadedCount === files.length) {
-                alert('原始镜头圖片導入完成');
+                alert('原始鏡頭圖片導入完成');
             }
         };
         img.src = URL.createObjectURL(files[i]);
@@ -567,7 +567,7 @@ imageFilesInput.onchange = (e) => {
     }
 };
 
-// 設置摄像机圖像映射的函數
+// 設置摄像機圖像映射的函數
 function setupCameraImageMapping() {
     cameraImageMapping = Array(cameraRegions.length).fill(null);
     importedImages.forEach((image, i) => {
