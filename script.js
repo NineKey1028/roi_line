@@ -7,6 +7,7 @@ let cameraImageMapping = [];
 let canceledROIs = [];
 let currentTool = 'select'; // 默認工具為選擇
 let polygonPoints = [];
+let canceledPoints = [];
 let selectedColor;
 let clickPoints = []; // 用来保存所有點擊座標
 let isSelectMode = false;
@@ -86,6 +87,7 @@ canvas.onclick = (e) => {
         // 僅在繪圖模式下記錄點擊座標
         if (currentTool === 'line' || currentTool === 'polygon') {
             clickPoints.push({ x, y });
+            canceledPoints = []; // 點擊新座標時清空撤銷緩存
         }
 
         drawAll();
@@ -101,7 +103,7 @@ function drawTemporaryLine(x, y) {
         ctx.moveTo(points[0].x, points[0].y);
         ctx.lineTo(x, y);
         ctx.strokeStyle = selectedColor;
-        ctx.lineWidth = 0.5;
+        ctx.lineWidth = 1;
         ctx.setLineDash([5, 5]); // 虛線效果
         ctx.stroke();
         ctx.setLineDash([]); // 恢復實線
@@ -109,7 +111,7 @@ function drawTemporaryLine(x, y) {
         // 繪製多邊形所有點的連接線
         ctx.beginPath();
         ctx.strokeStyle = selectedColor;
-        ctx.lineWidth = 0.5;
+        ctx.lineWidth = 1;
         ctx.setLineDash([5, 5]); // 虛線效果
 
         // 連接所有已經點擊的頂點
@@ -225,37 +227,72 @@ video.onloadedmetadata = () => {
 
 // 鍵盤事件監聽器
 document.addEventListener('keydown', (e) => {
-    switch (e.key.toLowerCase()) {
-        case ' ':
-            e.preventDefault();
-            playPauseControl.click();
-            break;
-        case 'arrowup':
-        case 'w':
-            seekVideo(0.1);
-            break;
-        case 'arrowdown':
-        case 's':
-            seekVideo(-0.1);
-            break;
-        case 'arrowleft':
-        case 'a':
-            seekVideo(-1);
-            break;
-        case 'arrowright':
-        case 'd':
-            seekVideo(1);
-            break;
-    }
-    if (e.key === 'Delete' && selectedROI) {
-        const index = roiAreas.indexOf(selectedROI);
-        if (index > -1) {
-            roiAreas.splice(index, 1); // 從數组中移除選中的ROI
-            selectedROI = null; // 重置選中
-            drawAll(); // 重新繪制
+    // 檢查是否按下 Ctrl 鍵
+    const isCtrlPressed = e.ctrlKey || e.metaKey;
+
+    if (isCtrlPressed) {
+        switch (e.key.toLowerCase()) {
+            case 'z': // Ctrl + Z
+                e.preventDefault(); // 防止瀏覽器默認操作
+                undoLastROI(); // 調用撤銷函數
+                break;
+            case 'y': // Ctrl + Y
+                e.preventDefault(); // 防止瀏覽器默認操作
+                redoLastROI(); // 調用復原函數
+                break;
+            case 's': // Ctrl + S
+                e.preventDefault(); // 防止瀏覽器默認的保存頁面操作
+                saveBtn.click(); // 觸發保存按鈕
+                break;
+        }
+    } else {
+        switch (e.key.toLowerCase()) {
+            case ' ': // 播放/暫停
+                e.preventDefault();
+                playPauseControl.click();
+                break;
+            case 'arrowup': // 快進/快退
+            case 'w':
+                seekVideo(0.1);
+                break;
+            case 'arrowdown':
+            case 's':
+                seekVideo(-0.1);
+                break;
+            case 'arrowleft':
+            case 'a':
+                seekVideo(-1);
+                break;
+            case 'arrowright':
+            case 'd':
+                seekVideo(1);
+                break;
+            case '1': // 選取工具
+                selectTool('select');
+                break;
+            case '2': // 線 ROI 工具
+                selectTool('line');
+                break;
+            case '3': // 多邊形工具
+                selectTool('polygon');
+                break;
+            case '4': // 矩形工具
+                selectTool('square');
+                break;
+        }
+
+        // 刪除選定 ROI
+        if (e.key === 'Delete' && selectedROI) {
+            const index = roiAreas.indexOf(selectedROI);
+            if (index > -1) {
+                roiAreas.splice(index, 1); // 從數组中移除選中的ROI
+                selectedROI = null; // 重置選中
+                drawAll(); // 重新繪制
+            }
         }
     }
 });
+
 
 // 绑定按鈕的 onclick 事件
 document.getElementById('loadVideoBtn').onclick = () => {
@@ -384,7 +421,8 @@ function closePolygon() {
 // 繪圖函數
 // 繪制cam區域
 function drawAll() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除 Canvas
+    // 清空畫布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // 繪製攝影機區域
     ctx.strokeStyle = 'red';
@@ -437,16 +475,29 @@ function drawAll() {
             ctx.stroke();
         });
 
-    // 僅在繪製未完成時繪製藍點
-    if ((currentTool === 'line' && clickPoints.length === 1) ||
-        (currentTool === 'polygon' && polygonPoints.length > 0)) {
-        ctx.fillStyle = 'blue'; // 點的颜色
-        clickPoints.forEach(point => {
+    // 繪製藍點（正在繪製的點）
+    ctx.fillStyle = 'blue';
+    if (currentTool === 'line') {
+        // 繪製線工具的點
+        clickPoints.forEach((point) => {
             ctx.beginPath();
-            ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2); // 繪製半徑為5的圆點
+            ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
             ctx.fill();
-            ctx.closePath();
         });
+    } else if (currentTool === 'polygon') {
+        // 繪製多邊形工具的點
+        polygonPoints.forEach((point) => {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    // 繪製當前正方形（Square）正在拖曳時
+    if (currentTool === 'square' && currentSquare) {
+        ctx.strokeStyle = currentSquare.color || selectedColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(currentSquare.x, currentSquare.y, currentSquare.size, currentSquare.size);
     }
 }
 
@@ -617,19 +668,37 @@ function exportROI() {
 
 // 撤销/重做函數
 function undoLastROI() {
-    if (roiAreas.length > 0) {
+    if (currentTool === 'line' && clickPoints.length > 0) {
+        // 撤銷最後一個點
+        const removedPoint = clickPoints.pop();
+        canceledPoints.push(removedPoint);
+    } else if (currentTool === 'polygon' && polygonPoints.length > 0) {
+        // 撤銷最後一個多邊形頂點
+        const removedPoint = polygonPoints.pop();
+        canceledPoints.push(removedPoint);
+    } else if (roiAreas.length > 0) {
+        // 撤銷最後一個完成的 ROI
         const removedROI = roiAreas.pop();
         canceledROIs.push(removedROI);
-        drawAll();
     }
+    drawAll(); // 確保畫布即時刷新
 }
 
 function redoLastROI() {
-    if (canceledROIs.length > 0) {
+    if (currentTool === 'line' && canceledPoints.length > 0) {
+        // 復原最後一個點
+        const restoredPoint = canceledPoints.pop();
+        clickPoints.push(restoredPoint);
+    } else if (currentTool === 'polygon' && canceledPoints.length > 0) {
+        // 復原最後一個多邊形頂點
+        const restoredPoint = canceledPoints.pop();
+        polygonPoints.push(restoredPoint);
+    } else if (canceledROIs.length > 0) {
+        // 復原最後一個完成的 ROI
         const restoredROI = canceledROIs.pop();
         roiAreas.push(restoredROI);
-        drawAll();
     }
+    drawAll(); // 確保畫布即時刷新
 }
 
 // 实用函數
